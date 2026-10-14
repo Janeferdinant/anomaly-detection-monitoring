@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Alert tuning demo</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Cpath d=%27M1 11l3-4 3 3 3-7 2 5 3-2%27 fill=%27none%27 stroke=%27%231f5fbf%27 stroke-width=%271.6%27/%3E%3C/svg%3E">
-<meta name="description" content="Move a threshold and a persistence slider and compare a naive z-score detector with improved anomaly detectors on sensor data with injected, labelled incidents.">
+<meta name="description" content="Pick a method and an alert budget and compare two anomaly detectors on household power data with injected incidents and on server metrics with human-labelled anomalies.">
 <style>
 :root{
   color-scheme: light dark;
@@ -75,8 +75,8 @@ a{color:var(--accent)}
 <body>
 <div class="wrap">
   <h1>Alert tuning demo</h1>
-  <p class="lede">Pick a sensor series, move the threshold and persistence sliders, and watch which alerts a naive detector and an improved detector raise on the same data. Incidents were injected with a seeded generator, so every alert can be checked against a known label.</p>
-  <p class="notice"><strong>Independent re-implementation on public data with synthetic incidents.</strong> This page is an explorer: counts show what happens on one sample at the settings you choose. It runs entirely in your browser from precomputed scores and does not reproduce any earlier deployment result.</p>
+  <p class="lede">Pick a series and two methods, set an alert budget, and watch which alerts each method raises on the same data. Some series are household power readings with injected incidents; others are server metrics whose anomalies were labelled by people. Every alert can be checked against a known label.</p>
+  <p class="notice"><strong>Independent re-implementation on public data.</strong> This page is an explorer: the counts show what happens on one sample at the settings you choose, not benchmark results. It runs entirely in your browser from precomputed scores and does not reproduce any earlier deployment result.</p>
 
   <section class="card" aria-label="Controls">
     <div class="controls">
@@ -86,13 +86,17 @@ a{color:var(--accent)}
         <span class="hint" id="series-hint"></span>
       </div>
       <div class="field">
-        <label for="improved">Improved detector (right panel)</label>
-        <select id="improved"></select>
+        <label for="mleft">Method, left panel</label>
+        <select id="mleft"></select>
       </div>
       <div class="field">
-        <label for="level">Threshold: <span id="level-out"></span></label>
-        <input type="range" id="level" min="0" step="1" value="24">
-        <div class="ends"><span>More alerts</span><span>Fewer alerts</span></div>
+        <label for="budget">Alert budget: <span id="budget-out"></span></label>
+        <input type="range" id="budget" min="0" step="1" value="3">
+        <div class="ends"><span>Fewer alerts</span><span>More alerts</span></div>
+      </div>
+      <div class="field">
+        <label for="mright">Method, right panel</label>
+        <select id="mright"></select>
       </div>
       <div class="field">
         <label for="k">Persistence: <span id="k-out"></span></label>
@@ -102,29 +106,29 @@ a{color:var(--accent)}
       <div class="field">
         <div class="check">
           <input type="checkbox" id="dq">
-          <label for="dq" style="margin:0">Add data-quality rules<span class="hint">Flags missing values, out-of-range values and stuck (repeated) values, on top of each detector.</span></label>
+          <label for="dq" style="margin:0">Add data-quality rules<span class="hint">Flags missing values, out-of-range values and stuck (repeated) values, on top of each method. Their alerts count against the budget.</span></label>
         </div>
       </div>
     </div>
   </section>
 
   <div class="panels">
-    <section class="card panel" aria-labelledby="h-base">
-      <h2 id="h-base">Baseline <span class="tag">global z-score</span></h2>
-      <div class="chart" id="chart-base" role="img" aria-label="Baseline detector chart"></div>
-      <ul class="stats" id="stats-base" aria-live="polite"></ul>
-      <p class="thr" id="thr-base"></p>
+    <section class="card panel" aria-labelledby="h-left">
+      <h2 id="h-left">Left <span class="tag" id="left-tag"></span></h2>
+      <div class="chart" id="chart-left" role="img" aria-label="Left panel chart"></div>
+      <ul class="stats" id="stats-left" aria-live="polite"></ul>
+      <p class="thr" id="thr-left"></p>
     </section>
-    <section class="card panel" aria-labelledby="h-imp">
-      <h2 id="h-imp">Improved <span class="tag" id="imp-tag"></span></h2>
-      <div class="chart" id="chart-imp" role="img" aria-label="Improved detector chart"></div>
-      <ul class="stats" id="stats-imp" aria-live="polite"></ul>
-      <p class="thr" id="thr-imp"></p>
+    <section class="card panel" aria-labelledby="h-right">
+      <h2 id="h-right">Right <span class="tag" id="right-tag"></span></h2>
+      <div class="chart" id="chart-right" role="img" aria-label="Right panel chart"></div>
+      <ul class="stats" id="stats-right" aria-live="polite"></ul>
+      <p class="thr" id="thr-right"></p>
     </section>
   </div>
 
   <ul class="legend card" style="margin-top:16px;padding:12px 16px" aria-label="Legend">
-    <li><i style="background:var(--band);border:1px solid var(--band-edge)"></i>Injected incident</li>
+    <li><i style="background:var(--band);border:1px solid var(--band-edge)"></i>Labelled incident</li>
     <li><i style="background:var(--tp)"></i>Alert that overlaps an incident (true alert)</li>
     <li><i style="background:repeating-linear-gradient(45deg,var(--fp) 0 3px,transparent 3px 6px);border:1px solid var(--fp)"></i>Alert with no incident (false alert)</li>
   </ul>
@@ -133,7 +137,7 @@ a{color:var(--accent)}
     <h2>Incidents in this window</h2>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Incident</th><th>When</th><th>Baseline</th><th id="th-imp">Improved</th></tr></thead>
+        <thead><tr><th>Incident</th><th>When</th><th id="th-left">Left</th><th id="th-right">Right</th></tr></thead>
         <tbody id="events"></tbody>
       </table>
     </div>
@@ -142,29 +146,29 @@ a{color:var(--accent)}
   <details class="card how" open>
     <summary>How it works</summary>
     <ol>
-      <li><strong>Data.</strong> Hourly readings from a real household electricity dataset (a 120-day window per series). A seeded generator injects labelled incidents: spikes, level shifts, slow drifts, stuck values and bursts of missing values. The first 60 days are a calibration window, the last 60 days are shown here.</li>
-      <li><strong>Scores.</strong> Each hour gets an anomaly score from Python code in this repository, using only past data. The baseline is the distance from the global mean in standard deviations. The improved options compare each value with what is normal for that hour of day (seasonal residual), use rolling medians, an EWMA control chart, or an Isolation Forest.</li>
-      <li><strong>Threshold.</strong> The slider picks a percentile of the scores seen in the calibration window, so both detectors are compared at the same alert rate on normal history. Points above the threshold are flagged.</li>
-      <li><strong>Persistence.</strong> With a value above 1, an alert is raised only after that many consecutive flagged hours. This removes isolated blips, but it delays alerts and can miss short incidents such as spikes.</li>
-      <li><strong>Data-quality rules.</strong> Optional checks for missing values, values outside the usual range and values stuck at the same reading. They are added to each detector's flags.</li>
-      <li><strong>Reading the numbers.</strong> An alert is a run of flagged hours. It is a true alert if it overlaps an injected incident and a false alert otherwise. An incident counts as caught if at least one alert falls inside it. Natural events in the real data that were not injected have no label, so they count as false alerts.</li>
+      <li><strong>Data.</strong> Two public sources. Household electricity readings (hourly, 120-day windows) with incidents injected by a seeded generator: spikes, level shifts, drifts, stuck values and bursts of missing values. And server metrics from the Server Machine Dataset (five-minute averages) whose anomaly intervals were labelled by operations experts. The first part of each series is used to fit and calibrate; only the later test window is shown here.</li>
+      <li><strong>Scores.</strong> Each point gets an anomaly score from Python code in this repository, using only past data. Methods include a global z-score (the baseline), rolling median and MAD, a seasonal residual, an EWMA control chart, a robust STL residual, Isolation Forest, local outlier factor, a one-class SVM, PCA reconstruction error, a small autoencoder and a voting ensemble. For server data the score is computed across all metrics of the machine, while the chart shows one of them.</li>
+      <li><strong>Alert budget.</strong> The slider sets how many alerts per day you are willing to receive. For each method the threshold is the lowest one that keeps the alert rate on the calibration window within that budget, so both panels are compared at the same alert load on history, and no labels are used.</li>
+      <li><strong>Persistence.</strong> With a value above 1, an alert is raised only after that many consecutive flagged points. This removes isolated blips, but it delays alerts and can miss short incidents such as spikes.</li>
+      <li><strong>Data-quality rules.</strong> Optional checks for missing values, values outside the usual range and values stuck at the same reading. They are added to each method's flags and their alerts count against the budget. A threshold that cannot meet the budget because of the rules alone makes the method silent.</li>
+      <li><strong>Reading the numbers.</strong> An alert is a run of flagged points. It is a true alert if it overlaps a labelled incident and a false alert otherwise. An incident counts as caught if at least one alert falls inside it, and the delay is the time from the start of the incident to the first flagged point. Natural events that nobody labelled count as false alerts.</li>
     </ol>
     <p style="margin-top:10px;color:var(--muted);font-size:.9rem">Evaluated results across many series and seeds, with methods and limitations, are in the repository README. The 20% false-positive reduction on the CV is a reported result from an earlier deployment and is not reproduced here.</p>
   </details>
 
   <footer>
-    Data: Hebrail, G. and Berard, A. (2006), Individual Household Electric Power Consumption, UCI Machine Learning Repository, <a href="https://doi.org/10.24432/C58K54">doi:10.24432/C58K54</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Modified: hourly means, 60-day excerpts, injected synthetic incidents. Code and page by Jane Rose Ferdinant, <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/">CC BY-NC-ND 4.0</a>.
+    Household data: Hebrail, G. and Berard, A. (2006), Individual Household Electric Power Consumption, UCI Machine Learning Repository, <a href="https://doi.org/10.24432/C58K54">doi:10.24432/C58K54</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Modified: hourly means, 60-day excerpts, injected synthetic incidents.
+    Server data: Su, Y., Zhao, Y., Niu, C., Liu, R., Sun, W. and Pei, D. (2019), Server Machine Dataset, <a href="https://github.com/NetManAIOps/OmniAnomaly">github.com/NetManAIOps/OmniAnomaly</a>, MIT license, copyright 2021 NetManAIOps-SMD (full text in THIRD_PARTY_NOTICES.md in the repository). Modified: five-minute averages, one metric shown per machine, test-window excerpts, precomputed scores.
+    Code and page by Jane Rose Ferdinant, <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/">CC BY-NC-ND 4.0</a>.
   </footer>
 </div>
 
 <script>
 "use strict";
 const DATA = /*__DATA__*/null;
-const KIND_LABEL = {spike:"Spike", level_shift:"Level shift", drift:"Drift", stuck:"Stuck value", missing:"Missing values"};
+const KIND_LABEL = {spike:"Spike", level_shift:"Level shift", drift:"Drift", stuck:"Stuck value", missing:"Missing values", labelled:"Labelled anomaly"};
 const $ = id => document.getElementById(id);
-const state = {series:0, improved:"combo", level:24, k:1, dq:false};
-const N = DATA.series[0].x.length;
-const PPD = 24;
+const state = {series:0, left:"zscore", right:"ensemble", budget:3, k:1, dq:false};
 
 /* ---- detection logic (mirrors anomaly_monitoring/alerting.py) ---- */
 function persist(flags, k){
@@ -173,12 +177,16 @@ function persist(flags, k){
   for(let i=0;i<flags.length;i++){ run = flags[i] ? run+1 : 0; out[i] = run >= k ? 1 : 0; }
   return out;
 }
+function thresholdFor(det, s){
+  const t = s.thr[det][state.dq ? 1 : 0][state.k - 1][state.budget];
+  return t === null ? Infinity : t;
+}
 function flagsFor(det, s){
-  const thr = s.grid[det][state.level], sc = s.scores[det];
-  const raw = new Uint8Array(N);
-  for(let i=0;i<N;i++) raw[i] = sc[i] > thr ? 1 : 0;
+  const thr = thresholdFor(det, s), sc = s.scores[det], n = s.x.length;
+  const raw = new Uint8Array(n);
+  for(let i=0;i<n;i++) raw[i] = sc[i] > thr ? 1 : 0;
   const f = persist(raw, state.k);
-  if(state.dq) for(let i=0;i<N;i++) if(s.dq.charCodeAt(i) === 49) f[i] = 1;
+  if(state.dq) for(let i=0;i<n;i++) if(s.dq.charCodeAt(i) === 49) f[i] = 1;
   return f;
 }
 function segments(f){
@@ -190,10 +198,13 @@ function segments(f){
   }
   return segs;
 }
-function evaluate(f, events){
+function evaluate(f, events, mpp){
   const alerts = segments(f).map(([a,b]) => ({a, b, tp: events.some(e => a < e[1] && b > e[0])}));
-  const caught = events.map(e => { for(let i=e[0]; i<e[1]; i++) if(f[i]) return true; return false; });
-  return {alerts, caught, nFalse: alerts.filter(x => !x.tp).length, nTrue: alerts.filter(x => x.tp).length,
+  const delay = events.map(e => { for(let i=e[0]; i<e[1]; i++) if(f[i]) return (i - e[0]) * mpp; return null; });
+  const caught = delay.map(d => d !== null);
+  const dl = delay.filter(d => d !== null).sort((x,y) => x-y);
+  const med = dl.length ? (dl.length % 2 ? dl[(dl.length-1)/2] : (dl[dl.length/2-1] + dl[dl.length/2]) / 2) : null;
+  return {alerts, caught, delay, medDelay: med, nFalse: alerts.filter(x => !x.tp).length, nTrue: alerts.filter(x => x.tp).length,
           nCaught: caught.filter(Boolean).length};
 }
 
@@ -205,9 +216,15 @@ function el(name, attrs, parent){
   if(parent) parent.appendChild(n);
   return n;
 }
+function fmtDelay(m){
+  if(m === null) return "none";
+  if(m >= 120) return (m/60).toFixed(m >= 600 ? 0 : 1) + " h";
+  return Math.round(m) + " min";
+}
 function drawChart(host, s, res, label){
+  const N = s.x.length, PPD = s.ppd;
   const W = Math.max(280, host.clientWidth || 320), H = W < 480 ? 210 : 250;
-  const m = {l:40, r:8, t:8, b:44};
+  const m = {l:44, r:8, t:8, b:44};
   const pw = W - m.l - m.r, ph = H - m.t - m.b;
   host.textContent = "";
   const svg = el("svg", {viewBox:`0 0 ${W} ${H}`, width:W, height:H, focusable:"false"}, host);
@@ -218,34 +235,29 @@ function drawChart(host, s, res, label){
   const vals = s.x.filter(v => v !== null);
   let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * .06 || 1; lo -= pad; hi += pad;
   const X = i => m.l + (i + .5) * pw / N, Y = v => m.t + (hi - v) * ph / (hi - lo);
-  // y grid + labels
   for(let g=0; g<=3; g++){
     const v = lo + (hi - lo) * g / 3, y = Y(v);
     el("line", {x1:m.l, x2:W-m.r, y1:y, y2:y, stroke:"var(--line)", "stroke-width":1}, svg);
     const t = el("text", {x:m.l-6, y:y+4, "text-anchor":"end", "font-size":11, fill:"var(--muted)"}, svg);
-    t.textContent = Math.abs(hi) >= 100 ? v.toFixed(0) : v.toFixed(1);
+    t.textContent = Math.abs(hi) >= 100 ? v.toFixed(0) : (Math.abs(hi) >= 2 ? v.toFixed(1) : v.toFixed(2));
   }
-  // incident bands
   s.events.forEach(e => {
     const r = el("rect", {x:X(e[0]-.5), y:m.t, width:Math.max(3, X(e[1]-.5)-X(e[0]-.5)), height:ph, fill:"var(--band)", stroke:"var(--band-edge)", "stroke-width":.75}, svg);
-    el("title", {}, r).textContent = `${KIND_LABEL[e[2]]}, hours ${e[0]} to ${e[1]-1}`;
+    el("title", {}, r).textContent = `${KIND_LABEL[e[2]]}, points ${e[0]} to ${e[1]-1}`;
   });
-  // series line with gaps for missing values
   let d = "", pen = false;
   s.x.forEach((v,i) => { if(v === null){ pen = false; return; } d += (pen ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1); pen = true; });
   el("path", {d, fill:"none", stroke:"var(--series)", "stroke-width":1.2, "stroke-linejoin":"round"}, svg);
-  // alert strip
   const sy = m.t + ph + 8;
   el("line", {x1:m.l, x2:W-m.r, y1:sy+6, y2:sy+6, stroke:"var(--line)"}, svg);
   res.alerts.forEach(a => {
     const x0 = X(a.a - .5), w = Math.max(3, X(a.b - .5) - x0);
     const r = el("rect", a.tp ? {x:x0, y:sy, width:w, height:12, fill:"var(--tp)"} :
                                 {x:x0, y:sy, width:w, height:12, fill:`url(#hatch-${host.id})`, stroke:"var(--fp)", "stroke-width":1.2}, svg);
-    el("title", {}, r).textContent = `${a.tp ? "True" : "False"} alert, hours ${a.a} to ${a.b-1}`;
+    el("title", {}, r).textContent = `${a.tp ? "True" : "False"} alert, points ${a.a} to ${a.b-1}`;
   });
-  // x axis (days)
-  const step = W < 480 ? 20 : 10;
-  for(let day=0; day<=N/PPD; day+=step){
+  const days = N / PPD, step = Math.max(1, Math.round(days / (W < 480 ? 4 : 8)));
+  for(let day=0; day<=days; day+=step){
     const x = m.l + day * PPD * pw / N;
     el("line", {x1:x, x2:x, y1:m.t+ph, y2:m.t+ph+4, stroke:"var(--muted)"}, svg);
     const t = el("text", {x:Math.min(x, W-14), y:H-8, "text-anchor":"middle", "font-size":11, fill:"var(--muted)"}, svg);
@@ -257,49 +269,51 @@ function stats(host, res, total){
   host.innerHTML = `
     <li><b>${res.alerts.length}</b><span>alerts raised</span></li>
     <li class="fp"><b>${res.nFalse}</b><span>false alerts</span></li>
-    <li class="tp"><b>${res.nCaught} of ${total}</b><span>incidents caught</span></li>`;
+    <li class="tp"><b>${res.nCaught} of ${total}</b><span>incidents caught</span></li>
+    <li><b>${fmtDelay(res.medDelay)}</b><span>median delay to first alert</span></li>`;
 }
-function fmt(v){ return Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2); }
+function fmt(v){ return !isFinite(v) ? "none (silent)" : (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2)); }
+function budgetText(b){ return b < 1 ? `${b} alert per day` : `${b} alert${b === 1 ? "" : "s"} per day`; }
 
+function panel(side, s){
+  const det = state[side], f = flagsFor(det, s), r = evaluate(f, s.events, s.mpp);
+  drawChart($("chart-"+side), s, r, DATA.methods[det]);
+  stats($("stats-"+side), r, s.events.length);
+  $("thr-"+side).textContent = `Threshold score ${fmt(thresholdFor(det, s))} (${DATA.methods[det]}).`;
+  $(side+"-tag").textContent = DATA.methods[det].toLowerCase();
+  $("th-"+side).textContent = DATA.methods[det];
+  return r;
+}
 function render(){
-  const s = DATA.series[state.series], imp = state.improved;
-  const q = DATA.levels[state.level];
-  $("level-out").textContent = `flag scores above the ${(q*100).toFixed(2)}th percentile of calibration scores`;
-  $("k-out").textContent = state.k === 1 ? "alert on any flagged hour" : `alert after ${state.k} flagged hours in a row`;
-  $("imp-tag").textContent = DATA.detectors[imp].toLowerCase();
-  $("th-imp").textContent = "Improved";
-  $("series-hint").textContent = `Test window: 60 days of hourly values starting ${new Date(s.start+"T00:00:00Z").toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"})}.`;
-  const fb = flagsFor("zscore", s), fi = flagsFor(imp, s);
-  const rb = evaluate(fb, s.events), ri = evaluate(fi, s.events);
-  drawChart($("chart-base"), s, rb, "Baseline");
-  drawChart($("chart-imp"), s, ri, "Improved");
-  stats($("stats-base"), rb, s.events.length);
-  stats($("stats-imp"), ri, s.events.length);
-  $("thr-base").textContent = `Threshold score ${fmt(s.grid.zscore[state.level])} (standard deviations from the mean).`;
-  $("thr-imp").textContent = `Threshold score ${fmt(s.grid[imp][state.level])} (${DATA.detectors[imp]}).`;
+  const s = DATA.series[state.series];
+  $("budget-out").textContent = `${budgetText(DATA.budgets[state.budget])} on the calibration window`;
+  $("k-out").textContent = state.k === 1 ? "alert on any flagged point" : `alert after ${state.k} flagged points in a row`;
+  $("series-hint").textContent = `${s.source}. Test window: ${(s.x.length / s.ppd).toFixed(0)} days of ${s.step} values.`;
+  const rl = panel("left", s), rr = panel("right", s);
   const rows = s.events.map((e,i) => {
-    const a = Math.floor(e[0]/PPD), b = e[0] % PPD;
-    const when = `day ${a}, ${String(b).padStart(2,"0")}:00, ${e[1]-e[0]} h`;
-    const cell = ok => ok ? '<span class="ok">caught</span>' : '<span class="no">missed</span>';
-    return `<tr><td>${KIND_LABEL[e[2]]}</td><td>${when}</td><td class="res">${cell(rb.caught[i])}</td><td class="res">${cell(ri.caught[i])}</td></tr>`;
+    const a = Math.floor(e[0]/s.ppd), mins = (e[0] % s.ppd) * s.mpp;
+    const when = `day ${a}, ${String(Math.floor(mins/60)).padStart(2,"0")}:${String(Math.round(mins%60)).padStart(2,"0")}, ${fmtDelay((e[1]-e[0]) * s.mpp)}`;
+    const cell = (r) => r.caught[i] ? `<span class="ok">caught</span>${r.delay[i] > 0 ? ", after " + fmtDelay(r.delay[i]) : ""}` : '<span class="no">missed</span>';
+    return `<tr><td>${KIND_LABEL[e[2]]}</td><td>${when}</td><td class="res">${cell(rl)}</td><td class="res">${cell(rr)}</td></tr>`;
   });
   $("events").innerHTML = rows.join("");
 }
 
 /* ---- wiring ---- */
 (function init(){
-  const ss = $("series"), im = $("improved"), lv = $("level");
-  DATA.series.forEach((s,i) => ss.add(new Option(`${s.title}, series ${i+1}`, i)));
-  Object.keys(DATA.detectors).filter(d => d !== "zscore").forEach(d => im.add(new Option(DATA.detectors[d], d)));
-  im.value = state.improved;
-  lv.max = DATA.levels.length - 1; lv.value = state.level;
+  const ss = $("series"), ml = $("mleft"), mr = $("mright"), bd = $("budget");
+  DATA.series.forEach((s,i) => ss.add(new Option(s.title, i)));
+  Object.keys(DATA.methods).forEach(d => { ml.add(new Option(DATA.methods[d], d)); mr.add(new Option(DATA.methods[d], d)); });
+  ml.value = state.left; mr.value = state.right;
+  bd.max = DATA.budgets.length - 1; bd.value = state.budget;
   ss.onchange = () => { state.series = +ss.value; render(); };
-  im.onchange = () => { state.improved = im.value; render(); };
-  lv.oninput = () => { state.level = +lv.value; render(); };
+  ml.onchange = () => { state.left = ml.value; render(); };
+  mr.onchange = () => { state.right = mr.value; render(); };
+  bd.oninput = () => { state.budget = +bd.value; render(); };
   $("k").oninput = e => { state.k = +e.target.value; render(); };
   $("dq").onchange = e => { state.dq = e.target.checked; render(); };
   let t; const rr = () => { clearTimeout(t); t = setTimeout(render, 80); };
-  if("ResizeObserver" in window) new ResizeObserver(rr).observe($("chart-base")); else window.addEventListener("resize", rr);
+  if("ResizeObserver" in window) new ResizeObserver(rr).observe($("chart-left")); else window.addEventListener("resize", rr);
   render();
 })();
 </script>
