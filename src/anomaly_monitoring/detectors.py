@@ -431,13 +431,17 @@ class OneClassSVMDetector(ResidualFeatureModel):
         super().__init__(points_per_day, seed, max_fit_rows=max_fit_rows)
         self.nu = nu
         self.model: OneClassSVM | None = None
+        self.offset = 0.0
 
     def _fit_model(self, f: Array) -> None:
         self.model = OneClassSVM(kernel="rbf", gamma="scale", nu=self.nu).fit(self._subsample(f))
+        # -decision_function is negative for inliers; shift it so that the most normal fit-window
+        # point scores 0 and every score is >= 0 (missing values score 0 and must stay the lowest)
+        self.offset = float(np.min(-self.model.decision_function(f)))
 
     def _raw_score(self, f: Array) -> Array:
         assert self.model is not None
-        return -self.model.decision_function(f)  # type: ignore[no-any-return]
+        return np.maximum(-self.model.decision_function(f) - self.offset, 0.0)
 
 
 class _Standardiser:

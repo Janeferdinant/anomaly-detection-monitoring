@@ -113,3 +113,14 @@ def test_series_without_history_does_not_crash():
     for name in DETECTOR_NAMES:
         det = make_detector(name, seed=0, points_per_day=PPD).fit(x)
         assert np.isfinite(det.score(x)).all()
+
+
+@pytest.mark.parametrize("name", DETECTOR_NAMES)
+def test_scores_are_non_negative_so_missing_values_never_outrank_normal_points(name, clean):
+    """Missing values score 0 by contract; a negative score for normal points would rank them below that."""
+    x = clean.copy()
+    x[25 * PPD : 25 * PPD + 6] = np.nan
+    s = fitted(name, x).score(x)
+    assert (s >= 0).all()
+    ok = np.isfinite(x)
+    assert s[~ok].max() <= s[ok][WARM:].min() + 1e-12

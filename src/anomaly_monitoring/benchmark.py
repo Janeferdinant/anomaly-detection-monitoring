@@ -266,7 +266,7 @@ def _window_metrics(unit: Unit, flags: np.ndarray, window: tuple[int, int]) -> d
     return {
         "n_events": em["n_events"], "event_recall": em["event_recall"], "n_alerts": em["n_alerts"],
         "n_false_alerts": em["n_false_alerts"], "false_alerts_per_day": em["false_alerts_per_day"],
-        "alerts_per_day": alerts_per_day(f, unit.ppd), "event_precision": em["event_precision"],
+        "alerts_per_day": alerts_per_day(f, unit.ppd), "flagged_share": float(f.mean()), "event_precision": em["event_precision"],
         "ttd_median_min": float(np.nanmedian(ttd)) if np.isfinite(ttd).any() else float("nan"),
         "ttd_sum_min": float(np.nansum(ttd)), "n_detected": int(np.isfinite(ttd).sum()),
         "pa_recall": pa["recall"], "point_recall": point_metrics(y, f)["recall"],
