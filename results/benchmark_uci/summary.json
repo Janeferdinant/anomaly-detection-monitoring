@@ -1,0 +1,62 @@
+{
+ "date": "2026-10-14",
+ "dataset": "uci",
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "n_units": 60,
+ "primary_target": 0.8,
+ "runtime_seconds": 367,
+ "chosen": {
+  "zscore": {},
+  "rolling_mad": {},
+  "seasonal": {
+   "scale_days": 7
+  },
+  "ewma": {
+   "lam": 0.5
+  },
+  "combo": {},
+  "stl": {
+   "trend_days": 1
+  },
+  "iforest": {
+   "n_estimators": 200,
+   "max_samples": 1024
+  },
+  "lof": {},
+  "ocsvm": {},
+  "pca": {
+   "variance": 0.8
+  },
+  "autoencoder": {
+   "hidden": 16,
+   "bottleneck": 4
+  },
+  "ensemble": {
+   "min_votes": 3
+  }
+ },
+ "rule_params": {
+  "range_margin": 0.5,
+  "max_flat_fraction": 0.5
+ },
+ "calibration_ranking": [
+  [
+   0.289855072463768,
+   "ocsvm"
+  ],
+  [
+   1.6166666666666665,
+   "stl"
+  ],
+  [
+   1.8086956521739128,
+   "seasonal"
+  ]
+ ]
+}
