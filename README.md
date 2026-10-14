@@ -154,7 +154,7 @@ The first run's `results/results.csv` is reproduced byte for byte by the refacto
 
 | Check | Result |
 |---|---|
-| `pytest` | 175 passed (detectors, rules, metrics, alerting, injection, evaluation, no-leakage, streaming equivalence, CLI, benchmark, SMD loader) |
+| `pytest` | 176 passed (detectors, rules, metrics, alerting, injection, evaluation, no-leakage, streaming equivalence, CLI, benchmark, SMD loader) |
 | `ruff check .`, `mypy` | clean |
 | Online monitor vs batch detector | identical scores and flags for z-score, rolling MAD, seasonal, EWMA, with persistence and rules (`tests/test_streaming.py`) |
 
@@ -194,7 +194,7 @@ python scripts/build_demo.py
 python scripts/run_evaluation.py      # optional: the first run (6 detectors), about 8 minutes
 ```
 
-`make install lint typecheck test data eval-benchmark demo` does the same in steps. Expected output: `pytest` ends with `175 passed`; the downloads print `Checksum OK`; each benchmark ends with `done in ... min; wrote results/benchmark_<dataset>` and writes `docs/runs/<date>-<dataset>-benchmark.md`; `build_demo.py` prints `wrote docs/index.html`. Results are deterministic for the same seeds; only dates and runtimes change. `python scripts/run_benchmark.py --dataset smd --smoke` runs 3 machines with one seed as a quick check.
+`make install lint typecheck test data eval-benchmark demo` does the same in steps. Expected output: `pytest` ends with `176 passed`; the downloads print `Checksum OK`; each benchmark ends with `done in ... min; wrote results/benchmark_<dataset>` and writes `docs/runs/<date>-<dataset>-benchmark.md`; `build_demo.py` prints `wrote docs/index.html`. Results are deterministic for the same seeds; only dates and runtimes change. `python scripts/run_benchmark.py --dataset smd --smoke` runs 3 machines with one seed as a quick check.
 
 ## Project structure
 
@@ -211,7 +211,7 @@ src/anomaly_monitoring/
   smd.py         Server Machine Dataset download (checksummed) and loader
   data.py, inject.py, evaluate.py, report.py   UCI loader, incident generator, first-run protocol
 scripts/         download_data.py, download_smd.py, run_benchmark.py, run_evaluation.py, build_demo.py, make_figure.py, make_sample_csv.py
-tests/           175 tests
+tests/           176 tests
 docs/            index.html (demo), img/, runs/ (dated run logs)
 results/         results.csv, summary.json (first run); benchmark_uci/, benchmark_smd/ (new runs)
 ```
