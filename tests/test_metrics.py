@@ -97,3 +97,38 @@ def test_no_events_event_recall_is_nan_safe():
     m = event_metrics(arr("0000"), arr("0100"), points_per_day=4)
     assert m["n_events"] == 0 and np.isnan(m["event_recall"])
     assert m["n_false_alerts"] == 1
+
+
+def test_time_to_detect_counts_points_from_event_start():
+    from anomaly_monitoring.metrics import time_to_detect
+
+    y = np.zeros(30, dtype=bool)
+    y[5:10] = True      # detected 2 points after its start
+    y[15:18] = True     # missed
+    y[22:25] = True     # alert already running when the event starts: delay 0
+    p = np.zeros(30, dtype=bool)
+    p[7:9] = True
+    p[20:24] = True
+    d = time_to_detect(y, p)
+    assert d[0] == 2 and np.isnan(d[1]) and d[2] == 0
+
+
+def test_time_to_detect_ignores_alerts_outside_events_and_handles_no_events():
+    from anomaly_monitoring.metrics import time_to_detect
+
+    y = np.zeros(10, dtype=bool)
+    p = np.ones(10, dtype=bool)
+    assert time_to_detect(y, p).size == 0
+    y[4:6] = True
+    p = np.zeros(10, dtype=bool)
+    p[0:3] = True
+    assert np.isnan(time_to_detect(y, p)).all()
+
+
+def test_alert_rate_counts_alert_segments_per_day():
+    from anomaly_monitoring.metrics import alerts_per_day
+
+    p = np.zeros(48, dtype=bool)
+    p[3:6] = True
+    p[20:22] = True
+    assert alerts_per_day(p, points_per_day=24) == 1.0

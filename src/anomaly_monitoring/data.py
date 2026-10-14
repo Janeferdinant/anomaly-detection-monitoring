@@ -12,7 +12,7 @@ CHANNELS = {
     "global_reactive_power": "kVAr",
 }
 POINTS_PER_DAY = 24
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 RAW_TXT = ROOT / "data" / "raw" / "household_power_consumption.txt"
 CACHE = ROOT / "data" / "processed" / "hourly.csv"
 

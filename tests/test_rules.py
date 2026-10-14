@@ -73,3 +73,42 @@ def test_data_quality_rules_combine():
     flags = rules.flags(x)
     assert flags[10] and flags[30] and flags[69]
     assert not flags[0:10].any()
+
+
+def test_components_and_ablation_subsets_add_up():
+    rng = np.random.default_rng(2)
+    rules = DataQualityRules().fit(rng.normal(50, 1, size=600))
+    x = rng.normal(50, 1, size=100)
+    x[10] = np.nan
+    x[30] = 90.0
+    x[50:70] = x[50]
+    comp = rules.components(x)
+    assert comp["missing"][10] and not comp["missing"][30]
+    assert comp["range"][30] and not comp["range"][10]
+    assert comp["stuck"][69] and not comp["stuck"][30]
+    union = rules.flags(x)
+    assert (union == (comp["missing"] | comp["range"] | comp["stuck"])).all()
+    assert not rules.flags(x, use=("missing", "range"))[69]  # leave-one-out removes the stuck flag
+    assert rules.flags(x, use=()).sum() == 0
+
+
+def test_flat_channels_switch_the_stuck_and_range_rules_off():
+    flat = np.full(500, 3.0)
+    rules = DataQualityRules().fit(flat)
+    assert rules.min_run is None
+    x = np.concatenate([flat[:50], np.full(50, 4.0)])
+    assert not rules.flags(x).any()  # nothing is "stuck" or "out of range" on a constant channel
+
+
+def test_multichannel_rules_flag_when_any_channel_is_flagged():
+    from anomaly_monitoring.rules import MultiDataQualityRules
+
+    rng = np.random.default_rng(3)
+    calib = rng.normal(0, 1, size=(600, 3))
+    rules = MultiDataQualityRules().fit(calib)
+    x = rng.normal(0, 1, size=(50, 3))
+    x[7, 2] = 50.0
+    x[20, 0] = np.nan
+    f = rules.flags(x)
+    assert f[7] and f[20] and f.sum() == 2
+    assert rules.flags(x, use=("range",))[7] and not rules.flags(x, use=("range",))[20]

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .metrics import event_metrics
+from .metrics import alerts_per_day, event_metrics
 
 
 def apply_persistence(flags, k: int) -> np.ndarray:
@@ -78,3 +78,31 @@ def calibrate_threshold(
         "n_false_alerts": int(m["n_false_alerts"]),
         "n_alerts": int(m["n_alerts"]),
     }
+
+
+def threshold_for_budget(scores, k: int, budget_per_day: float, points_per_day: float,
+                         extra_flags=None, max_n: int = 300) -> dict:
+    """Lowest threshold whose alert rate on the calibration window stays within a budget.
+
+    The alert budget is a number of alerts per day (all alerts, true or not), so no labels
+    are needed. ``extra_flags`` (the rule layer) are OR-ed in after persistence and count
+    against the budget. If the rule layer alone exceeds the budget no threshold can satisfy
+    it, and ``{"met": False, "threshold": inf}`` is returned (the detector is then silent).
+    """
+    s = np.asarray(scores, dtype=float)
+    extra = np.zeros(s.size, bool) if extra_flags is None else np.asarray(extra_flags, bool)
+    finite = s[np.isfinite(s)]
+    if finite.size == 0:
+        return {"threshold": float("inf"), "met": False, "alerts_per_day": 0.0}
+    u = np.unique(finite)
+    cand = u if u.size <= max_n else np.unique(np.quantile(finite, np.linspace(0.0, 1.0, max_n)))
+    silent = alerts_per_day(extra, points_per_day)
+    if silent > budget_per_day + 1e-12:
+        return {"threshold": float("inf"), "met": False, "alerts_per_day": silent}
+    best = (float("inf"), silent)
+    for thr in cand[::-1]:  # from the highest threshold down; stop at the first violation
+        rate = alerts_per_day(apply_persistence(s > thr, k) | extra, points_per_day)
+        if rate > budget_per_day + 1e-12:
+            break
+        best = (float(thr), rate)
+    return {"threshold": best[0], "met": True, "alerts_per_day": best[1]}
