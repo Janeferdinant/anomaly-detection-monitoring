@@ -8,3 +8,5 @@ data/processed/
 *.zip
 .playwright-mcp/
 *.out
+*.egg-info/
+results/_tmp/

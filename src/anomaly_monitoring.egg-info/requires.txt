@@ -1,4 +1,0 @@
-numpy>=1.26
-pandas<3,>=2.1
-scikit-learn<2,>=1.4
-statsmodels>=0.14

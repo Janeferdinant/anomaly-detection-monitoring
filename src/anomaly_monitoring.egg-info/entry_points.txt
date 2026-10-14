@@ -1,2 +1,0 @@
-[console_scripts]
-monitor = anomaly_monitoring.cli:main
