@@ -110,6 +110,17 @@ def build_log(ds, args, runtime_s, date, units, chosen, tune_summary, rule_summa
     for n in extra_notes:
         a(f"* {n}")
     a("")
+    a("## Development notes (full disclosure)")
+    a("")
+    a("* A first complete run of this benchmark exposed a bug in the one-class SVM score: it was `-decision_function`, which is "
+      "negative for normal points, so missing values (which score 0 by contract) ranked above normal points and low thresholds "
+      "flagged every missing burst for free. The score is now shifted to be non-negative, a test checks that every detector's "
+      "scores are non-negative, and both benchmarks were re-run. This log is from the re-run; the first run was discarded.")
+    a("* Thresholds, hyper-parameters, rule settings and the primary comparisons were fixed before the test windows of the final "
+      "run were read; the SMD primary recall target (0.65) was chosen from calibration-window diagnostics only.")
+    a("* The alert budget counts alert segments per day, so a threshold low enough that a detector stays flagged for a very long "
+      "stretch counts as one alert. The column `flagged_share` in `budget.csv.gz` records the share of test points flagged.")
+    a("")
     a("## Hyper-parameters chosen on calibration windows")
     a("")
     t = tune_summary.copy()

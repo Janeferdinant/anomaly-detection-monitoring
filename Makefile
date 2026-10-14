@@ -1,6 +1,6 @@
 PY ?= python
 
-.PHONY: install lint typecheck test test-all data eval-uci eval-smd demo all
+.PHONY: install lint typecheck test test-all data eval-uci eval-benchmark figure demo all
 install:
 	$(PY) -m pip install -r requirements-dev.txt
 	$(PY) -m pip install -e . --no-deps
@@ -20,6 +20,8 @@ eval-uci:        ## original UCI evaluation (injected anomalies), ~8 min
 eval-benchmark:  ## new multi-method benchmark on UCI (injected) and SMD (real labels)
 	$(PY) scripts/run_benchmark.py --dataset uci
 	$(PY) scripts/run_benchmark.py --dataset smd
+figure:
+	$(PY) scripts/make_figure.py
 demo:
 	$(PY) scripts/build_demo.py
 all: lint typecheck test
