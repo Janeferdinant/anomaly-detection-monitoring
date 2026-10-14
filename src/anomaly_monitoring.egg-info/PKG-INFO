@@ -1,0 +1,176 @@
+Metadata-Version: 2.4
+Name: anomaly-monitoring
+Version: 0.2.0
+Summary: Anomaly detection for data quality and monitoring: detectors, rule layer, matched-recall evaluation, streaming.
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=1.26
+Requires-Dist: pandas<3,>=2.1
+Requires-Dist: scikit-learn<2,>=1.4
+Requires-Dist: statsmodels>=0.14
+Dynamic: license-file
+
+# Anomaly Detection for Data Quality and Monitoring: fewer false alerts without missing incidents
+
+[![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
+
+> **Independent re-implementation on public or synthetic data. The 20% reduction in false positives on the CV is a reported result from an earlier deployment and is not reproduced here.**
+> The data and code of the original deployment are not available. Nothing in this repository is that result, and none of the numbers below should be read as confirming or replacing it.
+
+## Overview
+
+A small, tested toolkit for monitoring sensor and data-pipeline signals: a naive z-score baseline, four improved detectors (rolling median/MAD, seasonal residuals, an EWMA control chart, Isolation Forest), a data-quality rule layer (missing, range and stuck-value checks) and an alert-suppression rule that waits for several consecutive flagged points. Detectors are compared at matched recall, so a lower false-alert rate cannot simply come from detecting less. An interactive demo lets you move the threshold and persistence sliders yourself.
+
+## Demo
+
+`docs/index.html` is a static page that runs in the browser from precomputed scores (no server, nothing fetched at load). Open the file locally, or serve the folder with `python -m http.server --directory docs`. It is not published anywhere.
+
+| Desktop (1280 px) | Phone (390 px) |
+|---|---|
+| ![Demo at 1280 px](docs/img/demo-1280.png) | ![Demo at 390 px](docs/img/demo-390.png) |
+
+Pick a series, choose the improved detector, and move the threshold and persistence sliders. Both detectors are shown side by side with true and false alerts and a per-incident caught/missed table. The demo shows counts for one sample at the chosen settings, not benchmark results.
+
+## Problem statement
+
+Monitoring systems drown people in alerts. Every false positive costs attention and erodes trust, but a detector tuned to be quiet can miss real incidents. A fair claim of "fewer false positives" therefore has to hold at the same recall. This project asks, on public sensor data with labelled incidents: how many false alerts does each method raise at the same event recall, and what does an alert-suppression rule buy or cost?
+
+## Approach
+
+```mermaid
+flowchart LR
+  A[Hourly sensor series] --> B[Seeded incident injection<br/>spike, level shift, drift, stuck, missing]
+  B --> C[Split 60/60 days:<br/>calibration / test]
+  C --> D[Fit detectors and rules<br/>on calibration values only]
+  D --> E[Causal anomaly scores]
+  E --> F[Threshold from calibration window<br/>highest threshold with recall >= target]
+  F --> G[Persistence rule k in a row]
+  G --> H[OR data-quality rules]
+  H --> I[Score on test window:<br/>false alerts per day, event recall]
+```
+
+| Method | Idea |
+|---|---|
+| Global z-score (baseline) | `abs(x - mean) / std`, with mean and std from the calibration window |
+| Rolling median/MAD | robust z-score against the trailing 7-day median and MAD |
+| Seasonal residual | residual from the median of the same hour over the previous 7 days, scaled by a trailing robust scale |
+| EWMA control chart | exponentially weighted moving average of the seasonal residual z-scores, for small sustained shifts |
+| Isolation Forest | scikit-learn forest on causal window features of the seasonal residual |
+| Seasonal + EWMA ("combo") | larger of the seasonal and EWMA scores, each divided by its own calibration-window 99th percentile |
+| Data-quality rules | missing values, range check (robust quantile bounds), stuck-value check (run length from natural repeats) |
+| Persistence rule | raise an alert only after `k` consecutive flagged points (causal) |
+
+Design rules that keep the comparison honest:
+
+* **No label leakage.** Detectors and rules are fitted on calibration values without labels. Thresholds use labels of the calibration window only. All scores are causal (a score depends only on past values), which a test checks by changing the future.
+* **Matched recall.** For each configuration the threshold is the highest one whose calibration-window event recall reaches a target (0.50, 0.65, 0.80 or 0.90). Comparisons use only units where both methods reached the target.
+* **Three scoring views.** Event-level (an incident counts as caught if any alert falls inside it; a false alert is an alert overlapping no incident), point-adjusted, and raw point-level. Headline false-positive measure: false alerts per day.
+
+## Data
+
+* **Source:** Individual Household Electric Power Consumption, Hebrail and Berard (2006), UCI Machine Learning Repository, [doi:10.24432/C58K54](https://doi.org/10.24432/C58K54), **CC BY 4.0**. About 2.07 million one-minute readings from one household (Dec 2006 to Nov 2010), with natural missing values.
+* **Used here:** hourly means of four channels (global active power, global reactive power, voltage, global intensity). Three gap-free 120-day windows per channel give 12 series. Sub-metering channels were excluded because they are mostly constant, so "stuck value" has no meaning there.
+* **Download, never committed.** `scripts/download_data.py` fetches the ZIP at run time and checks its SHA-256 (`9f84b46a...3ff`). `data/raw/` is git-ignored.
+* **Labels are synthetic.** The dataset has no incident labels, so `anomaly_monitoring/inject.py` injects 15 incidents into each 60-day half of every series with a seeded generator: spikes (5 to 10 sigma), level shifts (3 to 6 sigma), drifts (ramp to 4 to 8 sigma), stuck values and bursts of missing values. Sigma is a robust scale of the hour-of-day residual. Seeds 0 to 4 are used for the reported run; seeds 1000 to 1002 were used during development.
+* **Splits:** the first 60 days of each window calibrate, the last 60 days test. The first 14 days are a warm-up and excluded from calibration scoring.
+* **Privacy:** household-level energy readings published by the dataset authors; no personal data is added. The demo embeds modified 60-day excerpts (see `THIRD_PARTY_NOTICES.md`).
+
+## Results
+
+All numbers below are new numbers from this repository, produced by `scripts/run_evaluation.py`. Full tables, settings and runtime are in [`docs/runs/2026-10-14-evaluation.md`](docs/runs/2026-10-14-evaluation.md); raw rows are in `results/results.csv`. "Change in false alerts" is the pooled change in test-window false alerts per day relative to the global z-score, with a 95% bootstrap interval over the 12 series (negative means fewer false alerts).
+
+| Finding | Value | Status | How measured |
+|---|---|---|---|
+| Detector alone, calibration recall target 0.65: change in false alerts vs z-score | EWMA -79% [-84, -72]; Isolation Forest -66% [-75, -51]; seasonal + EWMA -66% [-75, -52]; seasonal residual -59% [-70, -40]; rolling median/MAD -11% [-31, +17] (no clear change) | Verified (run 2026-10-14, seeds 0-4) | 49 to 50 of 60 series-seed units where both methods reached the target; test recall 0.60 to 0.66 vs 0.64 |
+| Detector alone, target 0.50 | No reduction: EWMA +42% [-24, +250], seasonal +86% [-1, +336], rolling MAD +205% [+72, +604] | Verified (run 2026-10-14, seeds 0-4) | 60 of 60 units; large incidents are easy for a global z-score |
+| **Primary:** detector + rule layer, k=1, target 0.80 | **No reduction.** EWMA -5% [-61, +195], seasonal +78% [-44, +442], Isolation Forest +120% [-2, +560], seasonal + EWMA +44% [-49, +323], rolling median/MAD +310% [+112, +1047] | Verified (run 2026-10-14, seeds 0-4) | 60 of 60 units; comparison fixed before the final run |
+| Calibration-selected pipeline (detector and k chosen on the calibration window) + rules, target 0.80 | +5% [-53, +228] vs z-score + rules (0.05 vs 0.05 false alerts/day) | Verified (run 2026-10-14, seeds 0-4) | 60 of 60 units |
+| Ranking quality at matched test recall 0.70, detector alone (threshold chosen on the test window, not deployable) | seasonal -72%, EWMA -80%, Isolation Forest -75%, seasonal + EWMA -77%; rolling MAD +3% | Verified (run 2026-10-14, seeds 0-4) | only 9 of 60 units where every detector could reach 0.70 |
+| Persistence rule at a fixed threshold (k=2 / k=3), detector alone | false alerts -26% to -58% (k=2) and -40% to -78% (k=3); event recall falls, for example seasonal residual 0.76 to 0.64 to 0.54 | Verified (run 2026-10-14, seeds 0-4) | threshold calibrated for k=1, only k changes |
+| Persistence rule at matched recall | Not a clear gain: the target is reachable less often (z-score 0.83, 0.42, 0.07 for k=1, 2, 3 at target 0.65) and false alerts on reached units are similar | Verified (run 2026-10-14, seeds 0-4) | threshold re-calibrated per k |
+| Point-adjusted vs raw scoring, z-score + rules | point-adjusted recall 0.76 vs raw point recall 0.32; point-adjusted precision 0.98 | Verified (run 2026-10-14, seeds 0-4) | same alerts, three scoring views |
+| Unit tests | 86 passed | Verified (run 2026-10-14) | `pytest` |
+| "20% reduction in false positives" from an earlier deployment | 20% | Reported (CV); not reproduced here | not measured in this repository |
+
+What the results say, plainly:
+
+* **Better statistical detectors help when the detector has to find subtle incidents on its own.** Without the rule layer and at a demanding recall target, the seasonal, EWMA, Isolation Forest and combined scores cut false alerts by roughly 60 to 80% against a global z-score, because a global z-score confuses the daily cycle with anomalies.
+* **They did not beat the z-score once a rule layer is added.** Missing, range and stuck checks catch the easy incidents at almost no cost, and a z-score on top is already as quiet as the others at the same recall (primary comparison above). On some series the baseline was better. In the primary comparison an improved detector had fewer false alerts than the baseline on 3 to 4 of the series (and more on 4 to 5 series); rolling median/MAD was never better.
+* **Rolling median/MAD alone is the weakest option here** because it does not remove the daily cycle.
+* **The persistence rule is a trade, not a free win.** At a fixed threshold it removes 26 to 78% of false alerts (k=2 and k=3), but it also drops recall because short incidents (spikes) never last `k` points.
+* **Recall is matched on the calibration window, not exactly on the test window.** Test recall differs by a few points between methods; the tables show both.
+* The benchmark labels are synthetic and easy relative to real incidents, so these numbers say nothing about the size of the effect in production.
+
+## Tech stack
+
+Python 3.11, NumPy, pandas, scikit-learn (Isolation Forest), pytest. The demo is plain HTML, CSS and JavaScript with inline SVG.
+
+## Getting started
+
+Prerequisites: Python 3.11, git, about 600 MB of disk (virtual environment, 20 MB download, 133 MB unpacked) and a network connection for the one-time dataset download. The full evaluation takes about 8 minutes on a laptop CPU.
+
+```bash
+git clone https://github.com/Janeferdinant/anomaly-detection-monitoring.git
+cd anomaly-detection-monitoring
+python -m venv .venv
+source .venv/bin/activate            # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+pytest
+python scripts/download_data.py
+python scripts/run_evaluation.py
+python scripts/build_demo.py
+```
+
+Expected output: `pytest` ends with `86 passed`; `download_data.py` prints `Checksum OK` and `Ready: data/raw/household_power_consumption.txt`; `run_evaluation.py` prints `12 series x 5 seeds`, ends with `done in ~8 min`, and writes `results/results.csv`, `results/summary.json` and `docs/runs/<date>-evaluation.md`; `build_demo.py` prints `wrote docs/index.html`. Results are deterministic for the same seeds; only the date and runtime lines change.
+
+## Project structure
+
+```
+anomaly_monitoring/
+  data.py        load hourly series, cut gap-free windows
+  inject.py      seeded incident generator
+  detectors.py   z-score, rolling MAD, seasonal residual, EWMA, Isolation Forest, combo
+  rules.py       missing / range / stuck checks
+  alerting.py    persistence rule, threshold calibration at a target recall
+  metrics.py     point, point-adjusted and event-level metrics
+  evaluate.py    matched-recall protocol, bootstrap intervals
+  report.py      summary tables
+scripts/         download_data.py, run_evaluation.py, build_demo.py, demo_template.html
+tests/           86 tests (metrics, detectors, rules, alerting, injection, evaluation, leakage)
+docs/            index.html (demo), img/, runs/ (dated run log)
+results/         results.csv, summary.json
+```
+
+## Real-world applications
+
+Alert tuning for sensor and IoT monitoring, data-pipeline freshness and quality monitors, metric monitoring for services, and energy-consumption monitoring. The rule layer mirrors checks that data-quality tools run on tables (null rate, value range, frozen values), and the persistence rule mirrors "for 5 minutes" conditions in alerting systems.
+
+## Limitations
+
+* The incident labels are injected, and synthetic incidents are easier than real ones (they are large and cleanly bounded). Natural events in the real data have no label and count as false alerts, which penalises sensitive detectors. A public benchmark with real labelled incidents has noisy labels of its own; none is used here.
+* Four channels of one household in one location, 12 windows. Results may not transfer to other signals.
+* Event-level scoring counts an incident as caught if any single alert falls inside it, which is generous for long incidents; point-adjusted scoring is more generous still (see the scoring table in the run log).
+* Calibration uses about 15 incidents per window, so the selected thresholds are noisy and test recall is not exactly matched.
+* Detector parameters were set during development on separate seeds, with no wider hyperparameter search. Better tuning could change the ranking.
+* Offline evaluation only: there is no online deployment, no latency measurement and no human-in-the-loop feedback.
+* A first full run showed that the stuck-value rule was mis-fitted (injected stuck incidents inflated its run-length estimate). The rule was fixed and everything was re-run; the reported run is the second one (details in the run log).
+
+## Future scope
+
+Add a public benchmark with real labelled incidents, evaluated under its licence; replace the heuristic rule fitting with learned per-channel limits; add an online (streaming) evaluation with alert-delay metrics; test multivariate detectors; evaluate alert grouping for correlated signals.
+
+## Credits & citation
+
+Data: Hebrail, G. and Berard, A. (2006). *Individual Household Electric Power Consumption* [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C58K54 (CC BY 4.0, modified as described in `THIRD_PARTY_NOTICES.md`).
+Methods: Isolation Forest (Liu, Ting and Zhou, 2008), EWMA control charts (Roberts, 1959), point-adjusted scoring (Xu et al., 2018). Isolation Forest comes from scikit-learn.
+
+## License
+
+Original work © Jane Rose Ferdinant, licensed CC BY-NC-ND 4.0. Third-party components retain their own licenses; see THIRD_PARTY_NOTICES.md.
+
+## Author
+
+Jane Rose Ferdinant, Assistant Professor, AI and ML.
+Portfolio: https://janeferdinant.vercel.app
+LinkedIn: https://www.linkedin.com/in/janerosenf/
