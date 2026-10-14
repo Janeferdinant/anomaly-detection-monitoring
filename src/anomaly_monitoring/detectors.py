@@ -61,6 +61,12 @@ def _robust_scale(a: Array, fallback: float = 1.0) -> float:
     return s if s > 0 else fallback
 
 
+def _residual_scale0(r: Array, a: Array) -> float:
+    """Robust scale of fit-window residuals, kept above numerical dust relative to the raw spread."""
+    s = _robust_scale(r, fallback=_robust_scale(a))
+    return max(s, 1e-3 * float(np.nanstd(a)), 1e-12)
+
+
 def _as_2d(x: Any) -> Array:
     a = np.asarray(x, dtype=float)
     return a[:, None] if a.ndim == 1 else a
@@ -89,8 +95,14 @@ def trailing_mad(a: Array, w: int, med: Array, chunk: int = 2048) -> Array:
     out = np.full(n, np.nan)
     view = _trailing_windows(a, w)
     for s in range(0, n, chunk):
-        blk = view[s : s + chunk]
-        out[s : s + chunk] = _nanmedian(np.abs(blk - med[s : s + chunk, None]), axis=1)
+        dev = np.abs(view[s : s + chunk] - med[s : s + chunk, None])
+        has_nan = np.isnan(dev).any(axis=1)
+        res = np.empty(dev.shape[0])
+        if (~has_nan).any():  # complete windows: plain median is much faster than nanmedian
+            res[~has_nan] = np.median(dev[~has_nan], axis=1)
+        if has_nan.any():
+            res[has_nan] = _nanmedian(dev[has_nan], axis=1)
+        out[s : s + chunk] = res
     return out
 
 
@@ -186,8 +198,8 @@ class SeasonalResidual(Detector):
         return r
 
     def fit(self, x_calib: Any) -> SeasonalResidual:
-        r = self._residuals(np.asarray(x_calib, dtype=float))
-        self.scale0 = _robust_scale(r, fallback=_robust_scale(np.asarray(x_calib, dtype=float)))
+        a = np.asarray(x_calib, dtype=float)
+        self.scale0 = _residual_scale0(self._residuals(a), a)
         return self
 
     def signed_z(self, x: Any) -> Array:
@@ -242,12 +254,15 @@ class STLResidual(Detector):
         if a.size >= 2 * p:
             from statsmodels.tsa.seasonal import STL
 
+            tail = s.to_numpy()[-10 * p :]  # the most recent ten cycles are enough for the profile
+            jump = max(1, p // 10)  # loess evaluated every `jump` points and interpolated (speed)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                res = STL(s.to_numpy(), period=p, seasonal=self.seasonal_window | 1, robust=True).fit()
+                res = STL(tail, period=p, seasonal=self.seasonal_window | 1, robust=True,
+                          seasonal_jump=jump, trend_jump=jump, low_pass_jump=jump).fit()
             seas = np.asarray(res.seasonal)
             profile = np.empty(p)
-            n = a.size
+            n = tail.size
             for phase in range(p):  # last full cycle, aligned to the phase of each index
                 last = n - 1 - ((n - 1 - phase) % p)
                 profile[phase] = seas[last]
@@ -268,8 +283,7 @@ class STLResidual(Detector):
     def fit(self, x_calib: Any) -> STLResidual:
         a = np.asarray(x_calib, dtype=float)
         self.profile = self._fit_profile(a)
-        r = self._residuals(a)
-        self.scale0 = _robust_scale(r, fallback=_robust_scale(a))
+        self.scale0 = _residual_scale0(self._residuals(a), a)
         return self
 
     def score(self, x: Any) -> Array:
@@ -431,7 +445,7 @@ class _Standardiser:
 
     def fit(self, f: Array) -> _Standardiser:
         self.mu = f.mean(axis=0)
-        self.sd = np.maximum(f.std(axis=0), 1e-3)
+        self.sd = np.maximum(f.std(axis=0), 0.1)  # features are z-scores: a floor of 0.1 sigma
         return self
 
     def transform(self, f: Array) -> Array:
@@ -529,7 +543,7 @@ class ComboDetector(Detector):
         self.seasonal.fit(a)
         self.ewma.fit(a)
         skip = _warmup_skip(a.size, self.ppd)
-        self.norm = [max(float(np.quantile(d.score(a)[skip:], self.q)), 1e-6)
+        self.norm = [max(float(np.quantile(d.score(a)[skip:], self.q)), 1e-3)
                      for d in (self.seasonal, self.ewma)]
         return self
 
@@ -576,7 +590,7 @@ class VotingEnsemble(Detector):
         self.norms = []
         for m in self.members:
             m.fit(a)
-            self.norms.append(max(float(np.quantile(m.score(a)[skip:], self.q)), 1e-6))
+            self.norms.append(max(float(np.quantile(m.score(a)[skip:], self.q)), 1e-3))
         return self
 
     def score(self, x: Any) -> Array:

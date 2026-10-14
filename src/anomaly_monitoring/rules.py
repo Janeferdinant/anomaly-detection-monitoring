@@ -103,9 +103,10 @@ def fit_stuck_run(x, floor: int = 4, min_runs: int = 10, max_flat_fraction: floa
 class DataQualityRules:
     """Missing + range + stuck rules with parameters fitted on a calibration window."""
 
-    def __init__(self, range_margin: float = 0.5, stuck_floor: int = 4):
+    def __init__(self, range_margin: float = 0.5, stuck_floor: int = 4, max_flat_fraction: float = 0.5):
         self.range_margin = range_margin
         self.stuck_floor = stuck_floor
+        self.max_flat_fraction = max_flat_fraction
         self.lo: float | None = None
         self.hi: float | None = None
         self.min_run: int | None = None
@@ -113,7 +114,7 @@ class DataQualityRules:
 
     def fit(self, x_calib) -> DataQualityRules:
         self.lo, self.hi = fit_range(x_calib, margin=self.range_margin)
-        self.min_run = fit_stuck_run(x_calib, floor=self.stuck_floor)
+        self.min_run = fit_stuck_run(x_calib, floor=self.stuck_floor, max_flat_fraction=self.max_flat_fraction)
         self.fitted = True
         return self
 
@@ -136,15 +137,16 @@ class DataQualityRules:
 class MultiDataQualityRules:
     """The rule layer for a matrix of metrics: one rule set per channel, flagged when any channel is."""
 
-    def __init__(self, range_margin: float = 0.5, stuck_floor: int = 4):
+    def __init__(self, range_margin: float = 0.5, stuck_floor: int = 4, max_flat_fraction: float = 0.5):
         self.range_margin = range_margin
         self.stuck_floor = stuck_floor
+        self.max_flat_fraction = max_flat_fraction
         self.rules: list[DataQualityRules] = []
 
     def fit(self, x_calib: Any) -> MultiDataQualityRules:
         a = np.asarray(x_calib, dtype=float)
         a = a[:, None] if a.ndim == 1 else a
-        self.rules = [DataQualityRules(self.range_margin, self.stuck_floor).fit(a[:, j])
+        self.rules = [DataQualityRules(self.range_margin, self.stuck_floor, self.max_flat_fraction).fit(a[:, j])
                       for j in range(a.shape[1])]
         return self
 

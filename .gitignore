@@ -10,3 +10,4 @@ data/processed/
 *.out
 *.egg-info/
 results/_tmp/
+results/*_smoke/
