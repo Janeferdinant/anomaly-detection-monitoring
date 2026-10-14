@@ -10,7 +10,7 @@
  ],
  "n_units": 60,
  "primary_target": 0.8,
- "runtime_seconds": 367,
+ "runtime_seconds": 231,
  "chosen": {
   "zscore": {},
   "rolling_mad": {},
@@ -47,7 +47,7 @@
  },
  "calibration_ranking": [
   [
-   0.289855072463768,
+   1.3721014492753623,
    "ocsvm"
   ],
   [

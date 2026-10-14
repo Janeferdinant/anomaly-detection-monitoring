@@ -5,7 +5,7 @@ Status label: `Verified (run 2026-10-14, seeds 0, 1, 2, 3, 4)`. Produced by `scr
 ## Settings
 
 * Python 3.11.9, numpy 2.4.6, pandas 2.3.3, scikit-learn 1.9.1
-* Hardware: AMD64 Family 25 Model 33 Stepping 0, AuthenticAMD, 16 logical cores, Windows; 8 worker processes; runtime 18.9 minutes
+* Hardware: AMD64 Family 25 Model 33 Stepping 0, AuthenticAMD, 16 logical cores, Windows; 8 worker processes; runtime 15.4 minutes
 * Units: 28 (22 usable for matched recall: at least 2 calibration events and one test event; 28 usable for alert budgets)
 * Model seeds: 0, 1, 2, 3, 4 (deterministic methods are run once)
 * Primary recall target 0.65; all targets (0.5, 0.65, 0.8); persistence k in (1, 2, 3); alert budgets (0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0) alerts/day
@@ -13,6 +13,12 @@ Status label: `Verified (run 2026-10-14, seeds 0, 1, 2, 3, 4)`. Produced by `scr
 * FA = false alert = an alert overlapping no labelled event. Event recall = share of labelled events with at least one flagged point. Time to detect (TTD) = minutes from event start to first flagged point, median over detected events.
 * Percent changes are the pooled change in test false alerts per day relative to the global z-score at the same calibration recall (negative = fewer false alerts); CIs are 95% percentile bootstrap intervals over series (UCI: 12 series, each averaged over its injection seeds; SMD: machines).
 * Data: Server Machine Dataset (MIT), commit 7fb0e0acf8; real server metrics with expert labels; 5-minute means (labels: a bin is anomalous if any minute is); fit window = first (unlabelled) part, calibration = first half of the labelled part, test = second half; 192 constant-in-training channels dropped over 28 machines; univariate methods are run per channel and alert on the largest normalised channel score.
+
+## Development notes (full disclosure)
+
+* A first complete run of this benchmark exposed a bug in the one-class SVM score: it was `-decision_function`, which is negative for normal points, so missing values (which score 0 by contract) ranked above normal points and low thresholds flagged every missing burst for free. The score is now shifted to be non-negative, a test checks that every detector's scores are non-negative, and both benchmarks were re-run. This log is from the re-run; the first run was discarded.
+* Thresholds, hyper-parameters, rule settings and the primary comparisons were fixed before the test windows of the final run were read; the SMD primary recall target (0.65) was chosen from calibration-window diagnostics only.
+* The alert budget counts alert segments per day, so a threshold low enough that a detector stays flagged for a very long stretch counts as one alert. The column `flagged_share` in `budget.csv.gz` records the share of test points flagged.
 
 ## Hyper-parameters chosen on calibration windows
 
