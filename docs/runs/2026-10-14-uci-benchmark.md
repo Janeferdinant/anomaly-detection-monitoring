@@ -5,7 +5,7 @@ Status label: `Verified (run 2026-10-14, seeds 0, 1, 2, 3, 4)`. Produced by `scr
 ## Settings
 
 * Python 3.11.9, numpy 2.4.6, pandas 2.3.3, scikit-learn 1.9.1
-* Hardware: AMD64 Family 25 Model 33 Stepping 0, AuthenticAMD, 16 logical cores, Windows; 6 worker processes; runtime 3.9 minutes
+* Hardware: AMD64 Family 25 Model 33 Stepping 0, AuthenticAMD, 16 logical cores, Windows; 8 worker processes; runtime 2.1 minutes
 * Units: 60 (60 usable for matched recall: at least 2 calibration events and one test event; 60 usable for alert budgets)
 * Model seeds: 0, 1, 2, 3, 4 (deterministic methods are run once)
 * Primary recall target 0.8; all targets (0.5, 0.65, 0.8); persistence k in (1, 2, 3); alert budgets (0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0) alerts/day
