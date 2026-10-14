@@ -17,10 +17,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
 
 import numpy as np  # noqa: E402
 
-from anomaly_monitoring.data import CHANNELS, load_hourly, make_units  # noqa: E402
+from anomaly_monitoring.data import load_hourly, make_units  # noqa: E402
 from anomaly_monitoring.detectors import DETECTOR_LABELS, make_detector  # noqa: E402
 from anomaly_monitoring.inject import inject_anomalies  # noqa: E402
 from anomaly_monitoring.rules import DataQualityRules  # noqa: E402
@@ -61,7 +62,7 @@ def main() -> int:
     for sid in SAMPLES:
         u = units[sid]
         res = inject_anomalies(u["values"], seed=SEED, points_per_day=ppd, warmup_days=WARMUP_DAYS)
-        x, y = res.values, res.labels
+        x = res.values
         split = x.size // 2
         warm = WARMUP_DAYS * ppd
         rules = DataQualityRules().fit(x[:split])
