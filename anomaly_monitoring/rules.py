@@ -63,13 +63,17 @@ def stuck_flags(x, min_run: int) -> np.ndarray:
     return flags
 
 
-def fit_stuck_run(x, floor: int = 4, q: float = 0.99) -> int:
-    """Minimum run length that counts as stuck: just above the ``q`` quantile of natural runs."""
-    a = np.asarray(x, dtype=float)
-    runs = _run_lengths(a)
-    if not runs:
+def fit_stuck_run(x, floor: int = 4, min_runs: int = 10) -> int:
+    """Minimum run length that counts as stuck, from the natural repeats in the window.
+
+    Uses the *median* length of repeated-value runs plus 2 (robust to a few genuine
+    stuck-sensor episodes hiding in the window), never below ``floor``. With fewer than
+    ``min_runs`` repeated-value runs there is no reliable estimate, so ``floor`` is used.
+    """
+    runs = _run_lengths(np.asarray(x, dtype=float))
+    if len(runs) < min_runs:
         return int(floor)
-    return int(max(floor, np.ceil(np.quantile(runs, q))))
+    return int(max(floor, np.ceil(np.median(runs)) + 2))
 
 
 class DataQualityRules:

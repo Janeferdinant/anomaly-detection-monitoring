@@ -14,7 +14,8 @@ stuck          value frozen at the last good reading               6-24 points
 missing        a burst of missing values (NaN)                     3-12 points
 ============== =================================================== ========================
 
-``sigma`` is the robust scale (1.4826 * MAD) of the residual from the hour-of-day median
+Each half of the series (calibration, test) receives ``n_per_type`` (default 3) events of
+every kind, i.e. 15 labelled incidents per half. ``sigma`` is the robust scale (1.4826 * MAD) of the residual from the hour-of-day median
 of the clean series, so magnitudes are comparable across channels. Events never overlap,
 are at least ``min_gap_days`` apart, never straddle the calibration/test boundary (the
 middle of the series) and never fall in the first ``warmup_days`` of the series.
@@ -94,7 +95,7 @@ def inject_anomalies(
     values,
     seed: int,
     points_per_day: int = 24,
-    n_per_type: int = 2,
+    n_per_type: int = 3,
     warmup_days: int = 14,
     min_gap_days: int = 1,
 ) -> InjectionResult:

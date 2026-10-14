@@ -170,25 +170,21 @@ def per_series_mean(df: pd.DataFrame, col: str) -> pd.Series:
     return df.groupby("series")[col].mean()
 
 
-def reduction_vs_baseline(method: pd.DataFrame, base: pd.DataFrame, boot_seed: int = 0) -> dict:
-    """False-alert reduction of ``method`` relative to ``base`` (matched calibration recall).
+def reduction_from_series(fm: pd.Series, fb: pd.Series, boot_seed: int = 0, n_boot: int = 10000) -> dict:
+    """Reduction of ``fm`` relative to ``fb`` (both: false alerts per day, indexed by series).
 
-    Both frames hold test results for the same (series, seed) units. Values are first
-    averaged over seeds within each series, then:
-    * ``mean_reduction``: mean over series of 1 - FA_method / FA_base (series with a zero
-      baseline are skipped), with a 95% bootstrap CI over series;
-    * ``pooled_reduction``: 1 - sum(FA_method) / sum(FA_base) with a 95% bootstrap CI over series.
+    * ``mean_reduction``: mean over series of 1 - fm/fb (series with fb == 0 are skipped),
+      with a 95% percentile-bootstrap CI over series;
+    * ``pooled_reduction``: 1 - sum(fm)/sum(fb), with a 95% bootstrap CI over series.
     """
-    fm = per_series_mean(method, "test_false_alerts_per_day")
-    fb = per_series_mean(base, "test_false_alerts_per_day")
     both = pd.concat([fm.rename("m"), fb.rename("b")], axis=1).dropna()
     ok = both[both["b"] > 0]
     per_series = 1 - ok["m"] / ok["b"]
-    mean, lo, hi = bootstrap_ci(per_series.to_numpy(), seed=boot_seed)
+    mean, lo, hi = bootstrap_ci(per_series.to_numpy(), seed=boot_seed, n_boot=n_boot) if len(ok) else (float("nan"),) * 3
 
     rng = np.random.default_rng(boot_seed + 1)
     m, b = both["m"].to_numpy(), both["b"].to_numpy()
-    idx = rng.integers(0, m.size, size=(10000, m.size))
+    idx = rng.integers(0, m.size, size=(n_boot, m.size))
     sb = b[idx].sum(axis=1)
     pooled_boot = np.where(sb > 0, 1 - m[idx].sum(axis=1) / np.where(sb > 0, sb, 1), np.nan)
     plo, phi = np.nanquantile(pooled_boot, [0.025, 0.975])
@@ -201,4 +197,15 @@ def reduction_vs_baseline(method: pd.DataFrame, base: pd.DataFrame, boot_seed: i
         "series_better": int((per_series > 0).sum()),
         "series_worse": int((per_series < 0).sum()),
         "series_equal": int((per_series == 0).sum()),
+        "fa_method": float(m.mean()), "fa_base": float(b.mean()),
     }
+
+
+def reduction_vs_baseline(method: pd.DataFrame, base: pd.DataFrame, boot_seed: int = 0) -> dict:
+    """False-alert reduction of ``method`` relative to ``base`` on matched units.
+
+    Both frames hold test results for the same (series, seed) units. Values are first
+    averaged over seeds within each series; the CI is a bootstrap over series.
+    """
+    return reduction_from_series(per_series_mean(method, "test_false_alerts_per_day"),
+                                 per_series_mean(base, "test_false_alerts_per_day"), boot_seed)

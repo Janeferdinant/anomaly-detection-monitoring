@@ -50,6 +50,18 @@ def test_fit_stuck_run_has_floor_and_exceeds_natural_runs():
     assert fit_stuck_run(y, floor=4) >= 7
 
 
+def test_fit_stuck_run_ignores_a_few_genuine_stuck_episodes():
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=600)
+    for s in (50, 200, 350):
+        x[s : s + 20] = x[s]  # three long stuck episodes, no other repeats
+    assert fit_stuck_run(x, floor=4) == 4  # too few runs to estimate: floor
+    y = x.copy()
+    for s in range(400, 580, 12):
+        y[s : s + 2] = y[s]  # many natural repeats of length 2
+    assert fit_stuck_run(y, floor=4) == 4  # median 2 + 2
+
+
 def test_data_quality_rules_combine():
     rng = np.random.default_rng(1)
     calib = rng.normal(50, 1, size=600)
