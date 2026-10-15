@@ -1,0 +1,6 @@
+grid_index,share_unreached,mean_cal_fa_per_day,params,chosen
+0,0.0,0.04202898550724638,"{'range_margin': 0.5, 'max_flat_fraction': 0.5}",True
+1,0.0,0.04202898550724638,"{'range_margin': 0.5, 'max_flat_fraction': 0.05}",False
+2,0.0,0.04202898550724638,"{'range_margin': 2.0, 'max_flat_fraction': 0.5}",False
+3,0.0,0.04202898550724638,"{'range_margin': 2.0, 'max_flat_fraction': 0.05}",False
+4,0.0,0.04202898550724638,"{'range_margin': 5.0, 'max_flat_fraction': 0.05}",False

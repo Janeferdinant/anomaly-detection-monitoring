@@ -88,6 +88,31 @@ def event_metrics(y_true, y_pred, points_per_day: float) -> dict:
     }
 
 
+def time_to_detect(y_true, y_pred) -> np.ndarray:
+    """Delay, in points, from the start of each event to its first flagged point.
+
+    One entry per event (in time order); NaN for events with no flagged point. A delay of 0
+    means a flag was already raised when the event started (or at its first point).
+    """
+    y = np.asarray(y_true, dtype=bool)
+    p = np.asarray(y_pred, dtype=bool)
+    es, ee = _segment_arrays(y)
+    n = p.size
+    idx = np.where(p, np.arange(n), n)
+    nxt = np.minimum.accumulate(idx[::-1])[::-1]  # nxt[i]: first flagged index >= i
+    first = nxt[es] if es.size else np.zeros(0, dtype=np.int64)
+    delay = np.where(first < ee, first - es, np.nan) if es.size else np.zeros(0)
+    return np.asarray(delay, dtype=float)
+
+
+def alerts_per_day(y_pred, points_per_day: float) -> float:
+    """Number of alerts (maximal runs of flagged points) per day, whatever they overlap."""
+    p = np.asarray(y_pred, dtype=bool)
+    as_, _ = _segment_arrays(p)
+    days = p.size / float(points_per_day)
+    return float(as_.size) / days if days > 0 else 0.0
+
+
 def false_alerts_per_day(y_true, y_pred, points_per_day: float) -> float:
     """Number of alerts that overlap no true event, divided by the length in days."""
     return event_metrics(y_true, y_pred, points_per_day)["false_alerts_per_day"]

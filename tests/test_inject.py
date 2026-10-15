@@ -2,7 +2,6 @@ import numpy as np
 
 from anomaly_monitoring.inject import EVENT_KINDS, inject_anomalies
 from anomaly_monitoring.metrics import segments
-
 from conftest import PPD, seasonal_series
 
 

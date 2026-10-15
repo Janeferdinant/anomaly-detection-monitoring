@@ -1,0 +1,35 @@
+{
+ "methods": {
+  "zscore": {},
+  "rolling_mad": {
+   "window_days": 1
+  },
+  "seasonal": {
+   "scale_days": 7
+  },
+  "ewma": {
+   "lam": 0.5
+  },
+  "combo": {},
+  "stl": {},
+  "iforest": {
+   "n_estimators": 200,
+   "max_samples": 1024
+  },
+  "lof": {
+   "n_neighbors": 50
+  },
+  "ocsvm": {},
+  "pca": {
+   "variance": 0.8
+  },
+  "autoencoder": {},
+  "ensemble": {
+   "min_votes": 3
+  }
+ },
+ "rules": {
+  "range_margin": 0.5,
+  "max_flat_fraction": 0.05
+ }
+}

@@ -12,7 +12,7 @@ CHANNELS = {
     "global_reactive_power": "kVAr",
 }
 POINTS_PER_DAY = 24
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 RAW_TXT = ROOT / "data" / "raw" / "household_power_consumption.txt"
 CACHE = ROOT / "data" / "processed" / "hourly.csv"
 
@@ -20,7 +20,7 @@ CACHE = ROOT / "data" / "processed" / "hourly.csv"
 def load_hourly(txt_path: Path = RAW_TXT, cache: Path | None = CACHE) -> pd.DataFrame:
     """Hourly means of the selected channels (NaN for hours with no valid minute at all)."""
     if cache is not None and Path(cache).exists():
-        return pd.read_csv(cache, index_col=0, parse_dates=True)
+        return pd.read_csv(cache, index_col=0, parse_dates=True, float_precision="round_trip")
     wanted = {"date", "time", *CHANNELS}
     raw = pd.read_csv(txt_path, sep=";", usecols=lambda c: c.lower() in wanted, na_values="?",
                       low_memory=False)

@@ -82,3 +82,29 @@ def test_calibrate_extra_flags_count_toward_recall():
     extra[10] = True  # the rule layer catches the invisible event
     cal = calibrate_threshold(scores, labels, 1, 1.0, 24, extra_flags=extra)
     assert cal["reached"] is True
+
+
+def test_budget_threshold_respects_the_alert_budget_and_is_label_free():
+    from anomaly_monitoring.alerting import threshold_for_budget
+    from anomaly_monitoring.metrics import alerts_per_day
+
+    rng = np.random.default_rng(0)
+    s = np.abs(rng.normal(0, 1, size=24 * 40))
+    for budget in (0.5, 1.0, 3.0):
+        res = threshold_for_budget(s, k=1, budget_per_day=budget, points_per_day=24)
+        assert res["met"]
+        flags = apply_persistence(s > res["threshold"], 1)
+        assert alerts_per_day(flags, 24) <= budget + 1e-12
+    # a larger budget never gives a higher threshold
+    t = [threshold_for_budget(s, 1, b, 24)["threshold"] for b in (0.5, 1.0, 3.0)]
+    assert t[0] >= t[1] >= t[2]
+
+
+def test_budget_threshold_when_rule_alerts_alone_exceed_the_budget():
+    from anomaly_monitoring.alerting import threshold_for_budget
+
+    s = np.ones(24 * 10)
+    extra = np.zeros(s.size, dtype=bool)
+    extra[::5] = True  # about 5 alerts per day from the rule layer alone
+    res = threshold_for_budget(s, 1, 1.0, 24, extra_flags=extra)
+    assert not res["met"] and res["threshold"] == float("inf")

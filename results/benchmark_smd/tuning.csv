@@ -1,0 +1,27 @@
+method,grid_index,n_units,share_unreached,mean_cal_fa_per_day,params,chosen
+autoencoder,0,22,0.0,2.108021596214401,{},True
+autoencoder,1,22,0.0,2.223203971633808,"{'hidden': 16, 'bottleneck': 4}",False
+combo,0,22,0.0,1.8146029351912327,{},True
+ensemble,0,22,0.0,3.0160166375621826,{},False
+ensemble,1,22,0.0,2.6299957013248902,{'min_votes': 3},True
+ewma,0,22,0.13636363636363635,3.2188345722584164,{},False
+ewma,1,22,0.31818181818181823,2.004486709093353,{'lam': 0.1},False
+ewma,2,22,0.0,3.6097416486529865,{'lam': 0.5},True
+iforest,0,22,0.0,3.4931150538399307,{},False
+iforest,1,22,0.0,2.5589026034529403,"{'n_estimators': 200, 'max_samples': 1024}",True
+lof,0,22,0.2272727272727273,7.516762693808377,{},False
+lof,1,22,0.09090909090909094,7.124267852152392,{'n_neighbors': 50},True
+ocsvm,0,22,0.0,1.226942159131917,{},True
+ocsvm,1,22,0.0,1.5151771402215721,{'nu': 0.01},False
+pca,0,22,0.0,3.4325663759714193,{},False
+pca,1,22,0.0,2.2820162154812675,{'variance': 0.8},True
+rolling_mad,0,22,0.045454545454545414,1.6174292869835754,{},False
+rolling_mad,1,22,0.045454545454545414,1.6725649309774142,{'window_days': 3},False
+rolling_mad,2,22,0.0,2.6557453082462548,{'window_days': 1},True
+seasonal,0,22,0.0,2.623802537609816,{},False
+seasonal,1,22,0.0,3.327913630558463,{'profile_days': 3},False
+seasonal,2,22,0.0,1.8012268201369042,{'scale_days': 7},True
+seasonal,3,22,0.0,2.951910620625097,"{'profile_days': 3, 'scale_days': 7}",False
+stl,0,22,0.0,2.123319781744222,{},True
+stl,1,22,0.0,2.356475166160327,{'trend_days': 1},False
+zscore,0,22,0.09090909090909094,1.6208281346321833,{},True

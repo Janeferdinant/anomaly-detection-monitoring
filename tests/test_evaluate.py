@@ -4,7 +4,6 @@ import pytest
 
 from anomaly_monitoring.evaluate import EvalConfig, bootstrap_ci, evaluate_series
 from anomaly_monitoring.inject import inject_anomalies
-
 from conftest import PPD, seasonal_series
 
 CFG = EvalConfig(detectors=("zscore", "seasonal"), ks=(1, 2), targets=(0.8,), points_per_day=PPD)
@@ -58,7 +57,7 @@ def test_calibration_recall_meets_target_when_reached():
 def test_rule_layer_cannot_reduce_calibration_recall():
     x, y = make_unit()
     df = rows(x, y)
-    for (d, k), g in df.groupby(["detector", "k"]):
+    for _, g in df.groupby(["detector", "k"]):
         no, yes = g[~g["dq"]].iloc[0], g[g["dq"]].iloc[0]
         assert yes["calib_event_recall"] >= no["calib_event_recall"] - 1e-12
 
