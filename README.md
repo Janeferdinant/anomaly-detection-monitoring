@@ -1,10 +1,9 @@
-# Anomaly Detection for Data Quality and Monitoring: fewer false alerts without missing incidents
+# Anomaly Detection for Data Quality and Monitoring: what reduces false alerts, and what does not
 
 [![License: CC BY-NC-ND 4.0](https://img.shields.io/badge/License-CC%20BY--NC--ND%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc-nd/4.0/)
 [![ci](https://github.com/Janeferdinant/anomaly-detection-monitoring/actions/workflows/ci.yml/badge.svg)](https://github.com/Janeferdinant/anomaly-detection-monitoring/actions/workflows/ci.yml)
 
-> **Independent re-implementation on public data. The 20% reduction in false positives on the CV is a reported result from an earlier deployment and is not reproduced here.**
-> The data and code of the original deployment are not available. Nothing in this repository is that result, and none of the numbers below should be read as confirming or replacing it.
+> **Independent study on public data.** On injected anomalies in household-power series, the best detector alone cuts false alerts by 77% [-83%, -67%] against a global z-score at matched recall (Verified, run 2026-10-14, seeds 0, 1, 2, 3, 4). On real expert-labelled server data no detector is distinguishable from the z-score (-24% [-69%, +200%]), and adding the data-quality rule layer raises about 7 false alerts a day. The study makes no claim about any other system or deployment.
 
 ## Summary
 

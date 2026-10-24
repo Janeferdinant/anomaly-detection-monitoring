@@ -76,7 +76,7 @@ a{color:var(--accent)}
 <div class="wrap">
   <h1>Alert tuning demo</h1>
   <p class="lede">Pick a series and two methods, set an alert budget, and watch which alerts each method raises on the same data. Some series are household power readings with injected incidents; others are server metrics whose anomalies were labelled by people. Every alert can be checked against a known label.</p>
-  <p class="notice"><strong>Independent re-implementation on public data.</strong> This page is an explorer: the counts show what happens on one sample at the settings you choose, not benchmark results. It runs entirely in your browser from precomputed scores and does not reproduce any earlier deployment result.</p>
+  <p class="notice"><strong>Independent study on public data.</strong> This page is an explorer: the counts show what happens on one sample at the settings you choose, not benchmark results. It runs entirely in your browser from precomputed scores and makes no claim about any other system or deployment.</p>
 
   <section class="card" aria-label="Controls">
     <div class="controls">
@@ -153,7 +153,7 @@ a{color:var(--accent)}
       <li><strong>Data-quality rules.</strong> Optional checks for missing values, values outside the usual range and values stuck at the same reading. They are added to each method's flags and their alerts count against the budget. A threshold that cannot meet the budget because of the rules alone makes the method silent.</li>
       <li><strong>Reading the numbers.</strong> An alert is a run of flagged points. It is a true alert if it overlaps a labelled incident and a false alert otherwise. An incident counts as caught if at least one alert falls inside it, and the delay is the time from the start of the incident to the first flagged point. Natural events that nobody labelled count as false alerts.</li>
     </ol>
-    <p style="margin-top:10px;color:var(--muted);font-size:.9rem">Evaluated results across many series and seeds, with methods and limitations, are in the repository README. The 20% false-positive reduction on the CV is a reported result from an earlier deployment and is not reproduced here.</p>
+    <p style="margin-top:10px;color:var(--muted);font-size:.9rem">Evaluated results across many series and seeds, with methods and limitations, are in the repository README, including the cases where no detector beats a plain z-score. This study makes no claim about any other system or deployment.</p>
   </details>
 
   <footer>

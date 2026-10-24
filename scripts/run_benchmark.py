@@ -88,8 +88,8 @@ def build_log(ds, args, runtime_s, date, units, chosen, tune_summary, rule_summa
     a(f"# Benchmark run {date}: {ds.upper()}")
     a("")
     a(f"Status label: `Verified (run {date}, seeds {seeds})`. Produced by `scripts/run_benchmark.py --dataset {ds}`"
-      f"{' --smoke' if args.smoke else ''}. These are new numbers from an independent re-implementation; they are not "
-      "the result reported for the earlier deployment on the CV.")
+      f"{' --smoke' if args.smoke else ''}. These are new numbers from an independent study on public data; "
+      "they make no claim about any other system or deployment.")
     a("")
     a("## Settings")
     a("")
