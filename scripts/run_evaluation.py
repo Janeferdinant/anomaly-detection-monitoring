@@ -59,8 +59,8 @@ def build_log(df, args, runtime_s, date, n_units) -> tuple[str, dict]:
     a("")
     a(f"Status label: `Verified (run {date}, seeds {seeds})`. Numbers below were produced by "
       "`scripts/run_evaluation.py` on public data with injected, labelled anomalies. They are new "
-      "numbers from an independent re-implementation. They are **not** the result reported for the "
-      "earlier deployment on the CV, and they do not reproduce or confirm it.")
+      "numbers from an independent study on public data and make no claim about any other system or "
+      "deployment.")
     a("")
     a("## Development notes (full disclosure)")
     a("")
